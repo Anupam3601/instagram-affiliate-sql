@@ -1,0 +1,129 @@
+--  INSTAGRAM AFFILIATE MARKETING — DATABASE SCHEMA
+--  File    : schema.sql
+--  Author  : Anupam_dubey
+--  Version : 8.0
+--  DB      : MySQL 8.0
+-- ================================================================
+-- TABLE 1: affiliate_products
+-- Master catalog of affiliate products promoted on Instagram
+-- ================================================================
+CREATE TABLE affiliate_products (
+    product_id       INT            NOT NULL AUTO_INCREMENT,
+    product_name     VARCHAR(150)   NOT NULL,
+    brand            VARCHAR(80)    NOT NULL,
+    category         VARCHAR(60)    NOT NULL,  -- Beauty, Skincare, Fashion, etc.
+    price            DECIMAL(10,2)  NOT NULL,
+    commission_rate  DECIMAL(5,2)   NOT NULL,  -- Percentage e.g. 12.50 = 12.5%
+
+    PRIMARY KEY (product_id),
+    INDEX idx_category (category),
+    INDEX idx_brand    (brand)
+);
+
+-- ================================================================
+-- TABLE 2: posts
+-- Every Instagram post published with an affiliate product link
+-- ================================================================
+CREATE TABLE posts (
+    post_id              INT           NOT NULL AUTO_INCREMENT,
+    post_date            DATETIME      NOT NULL,
+    caption              TEXT,
+    media_type           VARCHAR(20)   NOT NULL,  -- Reel, Photo, Carousel, Story, IGTV
+    affiliate_product_id INT           NOT NULL,
+    hashtags             TEXT
+    username             TEXT
+     Post_url            TEXT,
+
+    PRIMARY KEY (post_id),
+    INDEX idx_post_date  (post_date),
+    INDEX idx_media_type (media_type),
+
+    CONSTRAINT fk_posts_product
+        FOREIGN KEY (affiliate_product_id)
+        REFERENCES affiliate_products (product_id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+);
+
+-- ================================================================
+-- TABLE 3: post_insights
+-- Instagram analytics per post: views, likes, comments, saves, reach
+-- ================================================================
+CREATE TABLE post_insights (
+    insight_id   INT      NOT NULL AUTO_INCREMENT,
+    post_id      INT      NOT NULL,
+    views        BIGINT   NOT NULL DEFAULT 0,
+    comments     INT      NOT NULL DEFAULT 0,
+    likes        INT      NOT NULL DEFAULT 0,
+    saves        INT      NOT NULL DEFAULT 0,
+    reach        INT      NOT NULL DEFAULT 0,
+    recorded_at  DATE     NOT NULL,
+
+    PRIMARY KEY (insight_id),
+    INDEX idx_post_id     (post_id),
+    INDEX idx_recorded_at (recorded_at),
+
+    CONSTRAINT fk_insights_post
+        FOREIGN KEY (post_id)
+        REFERENCES posts (post_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
+-- ================================================================
+-- TABLE 4: link_clicks
+-- Every click on an affiliate link — source, device, timestamp
+-- ================================================================
+CREATE TABLE link_clicks (
+    click_id     INT          NOT NULL AUTO_INCREMENT,
+    post_id      INT          NOT NULL,
+    click_source VARCHAR(30)  NOT NULL,  -- bio, story, reel, carousel, igtv, direct
+    device_type  VARCHAR(20)  NOT NULL,  -- mobile, desktop, tablet
+    clicked_at   DATETIME     NOT NULL,
+    session_id   VARCHAR(60),
+
+    PRIMARY KEY (click_id),
+    INDEX idx_lc_post_id    (post_id),
+    INDEX idx_lc_clicked_at (clicked_at),
+    INDEX idx_lc_source     (click_source),
+
+    CONSTRAINT fk_clicks_post
+        FOREIGN KEY (post_id)
+        REFERENCES posts (post_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
+-- ================================================================
+-- TABLE 5: conversions
+-- Completed affiliate sales — linked back to a click and a post
+-- ================================================================
+CREATE TABLE conversions (
+    conversion_id INT           NOT NULL AUTO_INCREMENT,
+    click_id      INT           NOT NULL,
+    post_id       INT           NOT NULL,
+    sale_amount   DECIMAL(10,2) NOT NULL,
+    commission    DECIMAL(10,2) NOT NULL,
+    converted_at  DATETIME      NOT NULL,
+    status        VARCHAR(20)   NOT NULL DEFAULT 'pending',  -- confirmed, pending, refunded
+
+    PRIMARY KEY (conversion_id),
+    INDEX idx_cv_click_id     (click_id),
+    INDEX idx_cv_post_id      (post_id),
+    INDEX idx_cv_converted_at (converted_at),
+    INDEX idx_cv_status       (status),
+
+    CONSTRAINT fk_conv_click
+        FOREIGN KEY (click_id)
+        REFERENCES link_clicks (click_id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_conv_post
+        FOREIGN KEY (post_id)
+        REFERENCES posts (post_id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+);
+
+-- ================================================================
