@@ -1,0 +1,92 @@
+--all posts along with their media type and post date, ordered by most recent first.
+SELECT
+    post_id,
+    caption,
+    media_type,
+    post_date
+FROM posts
+ORDER BY post_date DESC;
+
+--List all distinct media types used across all posts
+SELECT DISTINCT media_type
+FROM posts
+ORDER BY media_type;
+
+--all affiliate products in the 'Beauty' category, ordered by price descending.
+SELECT
+    product_id,
+    product_name,
+    brand,
+    price,
+    commission_rate
+FROM affiliate_products
+WHERE category = 'Beauty'
+ORDER BY price DESC;
+
+--Find all link clicks that came from the 'story' source on mobile devices.
+SELECT
+    click_id,
+    post_id,
+    click_source,
+    device_type,
+    clicked_at
+FROM link_clicks
+WHERE click_source = 'story'
+  AND device_type  = 'mobile'
+ORDER BY clicked_at DESC;
+
+--10 most recent confirmed conversions with their sale amount and commission.
+SELECT
+    conversion_id,
+    post_id,
+    sale_amount,
+    commission,
+    converted_at
+FROM conversions
+WHERE status = 'confirmed'
+ORDER BY converted_at DESC
+LIMIT 10;
+
+--Count the total number of posts published for each media type.
+SELECT
+    media_type,
+    COUNT(*) AS total_posts
+FROM posts
+GROUP BY media_type
+ORDER BY total_posts DESC;
+
+--What is the total number of views, total likes, and total comments recorded across all posts?
+SELECT
+    SUM(views)    AS total_views,
+    SUM(likes)    AS total_likes,
+    SUM(comments) AS total_comments,
+    SUM(saves)    AS total_saves
+FROM post_insights;
+
+--List all affiliate products whose commission rate is greater than 10%, ordered by commission rate descending.
+
+SELECT
+    product_name,
+    brand,
+    category,
+    commission_rate
+FROM affiliate_products
+WHERE commission_rate > 10
+ORDER BY commission_rate DESC;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
