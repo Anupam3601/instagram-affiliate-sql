@@ -92,7 +92,7 @@ USE instagram_affiliate;
 # 2. Run schema first
 SOURCE schema.sql;
 
-#3 Run Queries
+# 3. Run Queries
 
 
 
