@@ -74,6 +74,55 @@ FROM affiliate_products
 WHERE commission_rate > 10
 ORDER BY commission_rate DESC;
 
+--Show each post along with its total views, likes, and comments from post_insights.
+SELECT 
+    p.post_date,
+    p.post_id,
+    p.post_url,
+    p.media_type,
+    pi.views,
+    pi.comments,
+    pi.likes,
+    pi.saves,
+    pi.reach
+FROM posts AS p
+JOIN post_insights AS pi
+    ON p.post_id = pi.post_id
+ORDER BY pi.views DESC;
+
+--Calculate the engagement rate (likes + comments + saves) / views × 100 for every post. Show only posts with engagement rate above 3%.
+SELECT *
+FROM (
+    SELECT 
+        p.post_id,
+        p.post_date,
+        p.media_type,
+        pi.views,
+        ROUND(
+            (pi.likes + pi.comments + pi.saves) * 100.0 
+            / NULLIF(pi.views, 0), 
+        2) AS engagement_rate
+    FROM posts p
+    JOIN post_insights pi
+        ON p.post_id = pi.post_id
+) t
+WHERE engagement_rate > 3
+ORDER BY engagement_rate DESC;
+
+--Show each post with its affiliated product name and brand. Include posts even if no product is assigned.
+SELECT 
+    p.post_date,
+    p.post_id,
+    p.media_type,
+    ap.product_name,
+    ap.brand,
+    ap.category
+FROM posts AS p
+JOIN affiliate_products AS ap
+    ON p.affiliate_product_id = ap.product_id
+ORDER BY p.post_date DESC;
+
+
 
 
 
