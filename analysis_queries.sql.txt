@@ -105,7 +105,7 @@ FROM (
     FROM posts p
     JOIN post_insights pi
         ON p.post_id = pi.post_id
-) t
+) 
 WHERE engagement_rate > 3
 ORDER BY engagement_rate DESC;
 
