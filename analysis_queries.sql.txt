@@ -121,7 +121,51 @@ FROM posts AS p
 JOIN affiliate_products AS ap
     ON p.affiliate_product_id = ap.product_id
 ORDER BY p.post_date DESC;
+--How many total clicks did each post receive? Show post_id, media_type, and total_clicks.
+SELECT
+    p.post_id,
+    p.media_type,
+    COUNT(lc.click_id) AS total_clicks
+FROM posts p
+LEFT JOIN link_clicks lc
+    ON p.post_id = lc.post_id
+GROUP BY p.post_id, p.media_type
+ORDER BY total_clicks DESC;
 
+--Find the total revenue and commission earned per affiliate product. Only include products with at least 1 confirmed conversion.
+SELECT 
+    ap.product_name,
+    ap.brand,
+    ap.category,
+    SUM(c.sale_amount) AS Total_sale,
+    SUM(c.commission) AS Total_Commosion
+FROM affiliate_products ap
+JOIN posts p
+    ON ap.product_id = p.affiliate_product_id
+JOIN conversions c
+    ON c.post_id = p.post_id
+WHERE c.status = 'confirmed'
+GROUP BY 
+    ap.product_id,
+    ap.product_name,
+    ap.brand,
+    ap.category
+HAVING COUNT(c.conversion_id) >= 1
+ORDER BY Total_sale DESC;
+
+--Show monthly totals of views, clicks, and conversions. Group by year and month.
+SELECT
+    DATE_FORMAT(p.post_date, '%Y-%m') AS month,
+    SUM(pi.views)                       AS total_views,
+    COUNT(DISTINCT lc.click_id)        AS total_clicks,
+    COUNT(DISTINCT c.conversion_id)    AS total_conversions
+FROM posts p
+JOIN post_insights pi  ON p.post_id = pi.post_id
+LEFT JOIN link_clicks lc ON p.post_id = lc.post_id
+LEFT JOIN conversions c  ON lc.click_id = c.click_id
+GROUP BY month
+ORDER BY month ASC;
+--Which click_source (bio, story, reel) generates the most clicks overall? Show count per source.
 
 
 
