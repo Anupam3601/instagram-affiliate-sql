@@ -166,6 +166,63 @@ LEFT JOIN conversions c  ON lc.click_id = c.click_id
 GROUP BY month
 ORDER BY month ASC;
 --Which click_source (bio, story, reel) generates the most clicks overall? Show count per source.
+SELECT
+    click_source,
+    COUNT(*) AS total_clicks,
+    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) AS pct_share
+FROM link_clicks
+GROUP BY click_source
+ORDER BY total_clicks DESC;
+--Find posts that received clicks but resulted in zero conversions.
+SELECT 
+    p.post_id,
+    p.media_type,
+    COUNT(lc.click_id) AS total_click,
+    COUNT(c.conversion_id) AS total_conversion
+FROM posts p
+JOIN link_clicks lc 
+    ON p.post_id = lc.post_id
+LEFT JOIN conversions c 
+    ON c.click_id = lc.click_id
+GROUP BY 
+    p.post_id,
+    p.media_type
+HAVING COUNT(c.conversion_id) = 0
+ORDER BY 
+    total_click DESC;
+--What is the average sale amount and average commission per product category?
+SELECT  
+    ap.category,
+    ap.brand,
+    ROUND(AVG(c.sale_amount), 2) AS AVG_SALE,
+    ROUND(AVG(c.commission), 2) AS AVG_commission,
+    COUNT(c.conversion_id) AS total_conversion
+FROM affiliate_products ap
+JOIN posts p
+    ON p.affiliate_product_id = ap.product_id
+JOIN conversions c
+    ON c.post_id = p.post_id
+GROUP BY 
+    ap.category,
+    ap.brand
+ORDER BY 
+    AVG_SALE DESC;
+--List all posts with more than 50,000 views that have never been clicked.
+SELECT 
+    p.post_id,
+    p.post_date,
+    p.media_type,
+    pi.views
+FROM posts p
+JOIN post_insights pi
+    ON pi.post_id = p.post_id
+LEFT JOIN link_clicks lc
+    ON p.post_id = lc.post_id
+WHERE 
+    pi.views > 50000
+    AND lc.click_id IS NULL
+ORDER BY 
+    pi.views DESC;
 
 
 
