@@ -279,6 +279,43 @@ FROM (
     JOIN post_insights pi ON p.post_id = pi.post_id
 ) ranked
 ORDER BY engagement_rate_pct DESC;
+--Find posts whose views are above the average views across all posts.
+SELECT
+    p.post_id,
+    p.media_type,
+    pi.views
+FROM posts p
+JOIN post_insights pi ON p.post_id = pi.post_id
+WHERE pi.views > (
+    SELECT AVG(views) FROM post_insights
+)
+ORDER BY pi.views DESC;
+--Using two CTEs, first calculate per-post CTR, then filter only posts where CTR is above 2%.
+WITH click_counts AS (
+    SELECT
+        post_id,
+        COUNT(*) AS total_clicks
+    FROM link_clicks
+    GROUP BY post_id
+),
+ctr_calc AS (
+    SELECT
+        p.post_id,
+        p.media_type,
+        pi.views,
+        COALESCE(cc.total_clicks, 0) AS clicks,
+        ROUND(
+            COALESCE(cc.total_clicks, 0) * 100.0
+            / NULLIF(pi.views, 0), 2
+        ) AS ctr_pct
+    FROM posts p
+    JOIN      post_insights pi ON p.post_id = pi.post_id
+    LEFT JOIN click_counts cc    ON p.post_id = cc.post_id
+)
+SELECT * FROM ctr_calc
+WHERE ctr_pct > 2.0
+ORDER BY ctr_pct DESC;
+--Identify posts with views in the top 20% across all posts using a subquery percentile filter.
 
 
 
