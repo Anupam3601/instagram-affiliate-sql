@@ -223,7 +223,62 @@ WHERE
     AND lc.click_id IS NULL
 ORDER BY 
     pi.views DESC;
+--Using a CTE, build a full funnel showing: views → total_clicks → conversions → revenue for every post.
+WITH funnel AS (
+    SELECT 
+        p.post_id,
+        p.media_type,
+        pi.views,
+        (pi.likes + pi.comments + pi.saves) AS engagements,
+        COUNT(DISTINCT lc.click_id) AS clicks,
+        COUNT(DISTINCT c.conversion_id) AS conversions,
+        COALESCE(SUM(c.commission), 0) AS revenue
+    FROM posts p
+    JOIN post_insights pi
+        ON p.post_id = pi.post_id
+    LEFT JOIN link_clicks lc
+        ON p.post_id = lc.post_id
+    LEFT JOIN conversions c
+        ON c.click_id = lc.click_id
+    GROUP BY 
+        p.post_id,
+        p.media_type,
+        pi.views,
+        pi.likes,
+        pi.comments,
+        pi.saves
+)
 
+SELECT 
+    *,
+    ROUND(clicks * 100.0 / NULLIF(views, 0), 2) AS ctr_pct,
+    ROUND(conversions * 100.0 / NULLIF(clicks, 0), 2) AS cvr_pct
+FROM funnel
+ORDER BY revenue DESC;
+--Using CASE WHEN, classify each post's engagement rate as 'High' (>5%), 'Medium' (2–5%), or 'Low' (<2%).
+SELECT
+    post_id,
+    media_type,
+    views,
+    engagement_rate_pct,
+    CASE
+        WHEN engagement_rate_pct > 5  THEN 'High'
+        WHEN engagement_rate_pct >= 2 THEN 'Medium'
+        ELSE 'Low'
+    END AS engagement_tier
+FROM (
+    SELECT
+        p.post_id,
+        p.media_type,
+        pi.views,
+        ROUND(
+            (pi.likes + pi.comments + pi.saves)
+            * 100.0 / NULLIF(pi.views, 0), 2
+        ) AS engagement_rate_pct
+    FROM posts p
+    JOIN post_insights pi ON p.post_id = pi.post_id
+) ranked
+ORDER BY engagement_rate_pct DESC;
 
 
 
