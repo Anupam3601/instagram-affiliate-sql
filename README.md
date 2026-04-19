@@ -8,7 +8,7 @@ instagram-affiliate-sql/
 │
 ├── README.md                  ← You are here
 ├── schema.sql                 ← CREATE TABLE statements + FK constraints
-├── sample_data.sql            ← 500 rows × 5 tables = 2,500 rows of data
+├── sample_data.sql            ← 500 rows per table × 5 tables = 2,500 rows of data
 ├── questions/
 │   ├── level1_basic.sql       ← Q01–Q08  | SELECT, WHERE, ORDER BY
 │   ├── level2_intermediate.sql← Q09–Q18  | JOINs, GROUP BY, HAVING
@@ -94,6 +94,20 @@ SOURCE schema.sql;
 
 # 3. Run Queries
 
+## 💡 Key Business Questions Answered
+- Which posts generate the most affiliate revenue?
+- Which click source (bio/story/reel) converts best?
+- Which product category earns the most commission?
+- What media type (Reel/Photo/Carousel) performs best?
+
+## 🛠️ Tools Used
+- MySQL 8.0 / MySQL Workbench
+
+## 📬 Connect
+**Anupam_Dubey** — [LinkedIn](https://www.linkedin.com/in/anupam-dubey-23862830b/) · [GitHub](https://github.com/Anupam3601/instagram-affiliate-sql)
+
+---
+⭐ If this helped you, please star the repo!
 
 
 
