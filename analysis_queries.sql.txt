@@ -316,6 +316,195 @@ SELECT * FROM ctr_calc
 WHERE ctr_pct > 2.0
 ORDER BY ctr_pct DESC;
 --Identify posts with views in the top 20% across all posts using a subquery percentile filter.
+SELECT
+    p.post_id,
+    p.media_type,
+    pi.views
+FROM posts p
+JOIN post_insights pi ON p.post_id = pi.post_id
+WHERE pi.views >= (
+    SELECT MAX(views_threshold)
+    FROM (
+        SELECT views AS views_threshold
+        FROM   post_insights
+        ORDER BY views
+        LIMIT  1
+        OFFSET (SELECT FLOOR(COUNT(*) * 0.8) FROM post_insights)
+    ) t
+)
+ORDER BY pi.views DESC;
+--For each brand, show whether their total commission is above or below the overall average commission using a subquery.
+WITH brand_commissions AS (
+    SELECT
+        ap.brand,
+        SUM(c.commission) AS brand_commission
+    FROM affiliate_products ap
+    JOIN posts p
+        ON ap.product_id = p.affiliate_product_id
+    JOIN conversions c
+        ON p.post_id = c.post_id
+    GROUP BY ap.brand
+),
+avg_commission AS (
+    SELECT AVG(brand_commission) AS avg_brand_commission
+    FROM brand_commissions
+)
+SELECT
+    bc.brand,
+    bc.brand_commission,
+    CASE
+        WHEN bc.brand_commission > ac.avg_brand_commission
+            THEN 'Above Average'
+        ELSE 'Below Average'
+    END AS performance_vs_avg
+FROM brand_commissions bc
+CROSS JOIN avg_commission ac
+ORDER BY bc.brand_commission DESC;
+--Find products that have posts but have never generated a single conversion.
+SELECT
+    ap.product_id,
+    ap.product_name,
+    ap.brand,
+    ap.category
+FROM affiliate_products ap
+JOIN posts p
+    ON p.affiliate_product_id = ap.product_id
+LEFT JOIN conversions c
+    ON p.post_id = c.post_id
+GROUP BY
+    ap.product_id,
+    ap.product_name,
+    ap.brand,
+    ap.category
+HAVING COUNT(c.post_id) = 0;
+
+--Rank all posts by total commission earned using RANK(). Show tied posts with the same rank.
+SELECT
+    p.post_id,
+    p.media_type,
+    ap.product_name,
+    COALESCE(SUM(c.commission), 0)  AS total_commission,
+    RANK() OVER (
+        ORDER BY COALESCE(SUM(c.commission), 0) DESC
+    ) AS revenue_rank
+FROM posts p
+JOIN      affiliate_products ap ON p.affiliate_product_id = ap.product_id
+LEFT JOIN link_clicks lc        ON p.post_id = lc.post_id
+LEFT JOIN conversions c         ON lc.click_id = c.click_id
+GROUP BY p.post_id, p.media_type, ap.product_name;
+--Calculate a running cumulative total of commission earned, ordered by conversion date.
+WITH confirmed_conversions AS (
+    SELECT
+        c.conversion_id,
+        c.converted_at,
+        ap.product_name,
+        c.commission
+    FROM conversions c
+    JOIN posts p
+        ON c.post_id = p.post_id
+    JOIN affiliate_products ap
+        ON p.affiliate_product_id = ap.product_id
+    WHERE c.status = 'confirmed'
+)
+SELECT
+    conversion_id,
+    converted_at,
+    product_name,
+    commission,
+    SUM(commission) OVER (
+        ORDER BY converted_at
+    ) AS running_total_commission
+FROM confirmed_conversions
+ORDER BY converted_at;
+--Use LAG() to compare each post's views to the previous post's views (ordered by post_date). Show the difference.
+WITH post_views_comparison AS (
+    SELECT
+        p.post_id,
+        p.post_date,
+        pi.views,
+        LAG(pi.views) OVER (
+            ORDER BY p.post_date
+        ) AS prev_post_views
+    FROM posts p
+    JOIN post_insights pi
+        ON p.post_id = pi.post_id
+)
+SELECT
+    post_id,
+    post_date,
+    views,
+    prev_post_views,
+    views - prev_post_views AS views_change,
+    CASE
+        WHEN prev_post_views IS NULL THEN 'No Previous Post'
+        WHEN views > prev_post_views THEN 'Growth'
+        WHEN views < prev_post_views THEN 'Decline'
+        ELSE 'Same'
+    END AS trend
+FROM post_views_comparison
+ORDER BY post_date;
+--Within each product category, rank posts by their conversion count using DENSE_RANK() partitioned by category.
+SELECT
+    ap.category,
+    p.post_id,
+    p.media_type,
+    ap.product_name,
+    COUNT(c.conversion_id) AS conversions,
+    DENSE_RANK() OVER (
+        PARTITION BY ap.category
+        ORDER BY     COUNT(c.conversion_id) DESC
+    ) AS rank_in_category
+FROM affiliate_products ap
+JOIN      posts p       ON ap.product_id = p.affiliate_product_id
+LEFT JOIN link_clicks lc ON p.post_id  = lc.post_id
+LEFT JOIN conversions c  ON lc.click_id = c.click_id
+GROUP BY
+    ap.category, p.post_id,
+    p.media_type, ap.product_name
+ORDER BY ap.category, rank_in_category;
+--Build an executive summary view using a single query: total posts, total views, total clicks, total conversions, total revenue, overall CVR%, and top performing media_type — all in one row.
+WITH overall_summary AS (
+    SELECT
+        COUNT(DISTINCT p.post_id) AS total_posts,
+        SUM(pi.views) AS total_views,
+        COUNT(DISTINCT lc.click_id) AS total_clicks,
+        COUNT(DISTINCT c.conversion_id) AS total_conversions,
+        COALESCE(SUM(c.commission), 0) AS total_revenue
+    FROM posts p
+    JOIN post_insights pi
+        ON p.post_id = pi.post_id
+    LEFT JOIN link_clicks lc
+        ON p.post_id = lc.post_id
+    LEFT JOIN conversions c
+        ON lc.click_id = c.click_id
+),
+best_media_type AS (
+    SELECT
+        p.media_type,
+        COALESCE(SUM(c.commission), 0) AS media_revenue
+    FROM posts p
+    LEFT JOIN link_clicks lc
+        ON p.post_id = lc.post_id
+    LEFT JOIN conversions c
+        ON lc.click_id = c.click_id
+    GROUP BY p.media_type
+    ORDER BY media_revenue DESC
+    LIMIT 1
+)
+SELECT
+    os.total_posts,
+    os.total_views,
+    os.total_clicks,
+    os.total_conversions,
+    os.total_revenue,
+    ROUND(
+        os.total_conversions * 100.0 / NULLIF(os.total_clicks, 0),
+        2
+    ) AS overall_cvr_pct,
+    bm.media_type AS top_media_type
+FROM overall_summary os
+CROSS JOIN best_media_type bm;
+
 
 
 
